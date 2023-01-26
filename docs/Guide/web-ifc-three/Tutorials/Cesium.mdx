@@ -1,0 +1,233 @@
+---
+title: 🌎 Cesium
+sidebar_position: 7
+---
+
+import { IfcCard } from "@site/src/components/Card/InfoCard";
+import { IfcAlert } from "@site/src/components/Alert/Alert";
+import { Scene } from "@site/src/components/Scene/Scene";
+
+## Introduction
+
+🌎[Cesium](https://cesium.com/) is a powerful 3D geospatial environment that allows you to integrate multiple 3D data sources, including BIM, point cloud models, topography data, etc.
+
+In this tutorial we will use **Cesium.js** and **IFC.js** to visualise our **IFC** models in a **3D geospatial environment**. 
+
+<IfcCard>
+We will: 
+
+
+- Use <b>IFC.js</b> to convert our models to <b>glTF</b> format, and also export their <b>metadata</b> in <b>JSON</b> format 
+- Setup a free account in <b>Cesium ion</b> and upload our <b>models</b>
+- Develop a <b>3D geospatial app</b> showcasing the <b>integration</b> of our <b>BIM</b> models with <b>Cesium.js</b>  
+
+</IfcCard>
+
+## Setting up the project
+
+🗺️To obtain **global satellite imagery**, **3D buildings** and **terrain** we will use [Cesium ion](https://cesium.com/platform/cesium-ion/), an open platform for streaming and hosting 3D content.
+
+📃[Sign up](https://ion.cesium.com/signup?) for a free **Cesium ion** account.
+
+Once you're logged in to **Cesium ion**:
+
+- Go to your [access tokens](https://ion.cesium.com/tokens?page=1) tab.
+- Click on **Create token.** Select a name for your token, and go with the default options. 
+
+<IfcAlert> 
+Select the option to protect your token, by checking the <b>Selected URLs</b> option under <b>Allowed URLs</b>, and entering your <b>app URL</b> here. We will use this token when building our web app.
+</IfcAlert> 
+
+## Exporting IFC models using IFC.js
+
+### Exporting geometry and metadata
+
+We will start by exporting our **IFC models** to **glTF** (geometry) and **JSON** (properties). 
+
+You can follow this [tutorial](https://ifcjs.github.io/info/docs/Guide/web-ifc-viewer/Tutorials/IFC%20to%20gLTF) to achieve this. 
+
+<IfcAlert> 
+By exporting IFC models using different categories, you can decide what to include or remove for visualisation in the geospatial environment. This will improve model loading times and remove unnecessary data in the geospatial context. 
+</IfcAlert>
+
+### Loading categories into the geometry model
+
+You should now have a series of .glTF files for each category of your **IFC model** (i.e. Slabs, Walls, Windows, Doors, etc.), as well as a JSON properties file - great! 🥳 
+
+Now you can use your tool of choice to combine the categories you'd like to display on your 3D geospatial application.
+
+For example, using [Blender](https://www.blender.org/) - a free and open source software for 3D modelling, rendering (and much more...):
+
+- Click on **File**, **Import**, select **glTF 2.0**. 
+- Navigate to the directory where your .gltf files are located, select the files you want to load and click on **Import glTF 2.0**.
+- Click on **File**, **Export**, **glTF 2.0**.
+- Select the directory and file name to export your model, and use the default export options.
+
+## Uploading models into Cesium ion
+
+Login to [Cesium](https://ion.cesium.com/) using your free account:
+
+- Navigate to **My Assets** tab, click on **Add data**.
+- Click on **Add files** and load the gltf model from the previous step.
+- Under **What kind of data is this?** select **3D model (convert to glTF)**
+
+Once the model is loaded in Cesium ion, note its **Asset ID**.
+
+## 3D geospatial app development
+
+🥳 Finally we have all we need to create our 3D geospatial app! 
+
+### Groundwork
+
+In this guide we will load the Cesium dependencies with HTML tags. For alternatives on how to setup Cesium apps check out this [link](https://cesium.com/downloads/):
+
+```html
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.101/Build/Cesium/Cesium.js"></script>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.101/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+```
+
+Add a `div` to display your Cesium app:
+
+```html
+<div id="cesiumContainer"></div>
+```
+
+Include the Cesium.js access token, which we created in Cesium ion.
+
+```js
+Cesium.Ion.defaultAccessToken = "YOUR_ACCESS_TOKEN_HERE"
+```
+
+### Preparing the scene
+
+Initialize the **Cesium viewer**, selecting the **Terrain Provider** to include topography:
+
+```js
+const viewer = new Cesium.Viewer('cesiumContainer', {
+    terrainProvider: Cesium.createWorldTerrain()
+  });  
+```
+
+Add **OSM Buildings** to visualise your model in context with 3D buildings:
+
+```js
+const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());   
+```
+
+### Loading the model
+
+- Define the building **position** by setting the **longitude**, **latitude** and **height** of the model.
+- Define the building **orientation** by setting the **heading**, **pitch** and **roll**:
+
+```js
+// define building position and orientation
+const position = Cesium.Cartesian3.fromDegrees(-2.261282,  53.398754, 88)
+const heading = Cesium.Math.toRadians(25.0);
+const pitch = Cesium.Math.toRadians(0.0);
+const roll = Cesium.Math.toRadians(0.0);
+const orientation = Cesium.Transforms.headingPitchRollQuaternion(
+  position,
+  new Cesium.HeadingPitchRoll(heading, pitch, roll)
+);
+```
+
+Load the **geometry** (glTF) model using its **AssetId** (copy it from **Cesium ion**): 
+
+```js
+let htmlElem; // we will use this variable to add metadata from the JSON properties file to the glTF model
+
+(async () => {
+  "use strict";
+  try {
+    const resource = await Cesium.IonResource.fromAssetId(1511359);
+    const entity = viewer.entities.add({
+      position: position,
+      model: {
+        uri: resource,
+      },
+      description: htmlElem,
+      orientation: orientation,
+    });
+    viewer.zoomTo(entity); //zoom to the building on start up
+  } catch (error) {
+    console.log(error);
+  }
+})();
+```
+
+<IfcAlert>
+  We are defining a <b>htmlElem</b> variable that will be used to add metadata from the JSON properties file to the <b>description</b> field of the glTF model entity. The <b>description</b> field can contain text in HTML format. When we click on the building we will be able to see the <b>IfcBuilding</b> metadata. 
+</IfcAlert>
+
+Create a function to convert **IfcBuilding** metadata from the JSON properties file to HTML to be used for the model description:
+
+```js
+function createDescription(numberOfEntries, keys, values) { 
+
+    let tableElem = document.createElement("table");
+    tableElem.setAttribute ("class" , "cesium-infoBox-defaultTable");
+
+    let tableBodyElem = document.createElement("tbody");
+
+    //create table entries based on ifc data
+    for (let i = 0; i < numberOfEntries; i++)
+    {
+        let tableEntryElem = document.createElement("tr");
+
+        let thElem = document.createElement("th");
+        thElem.innerText = keys[i];
+
+        let tdElem = document.createElement("td");
+        tdElem.innerText = values[i];
+
+        tableEntryElem.appendChild(thElem);
+        tableEntryElem.appendChild(tdElem);
+
+        tableBodyElem.appendChild(tableEntryElem);
+
+    }
+
+    tableElem.appendChild(tableBodyElem);
+    
+    let description = tableElem.outerHTML; //need to provide this in text format for Cesium infoBox
+
+    return description;
+}
+```
+
+Define a function to access the IFC JSON properties and add **IfcBuilding** metadata to the `htmlElem` variable defined earlier:
+
+```js
+async function getJSONProperties() {
+  try {
+    const rawProperties = await fetch("./properties.json");
+    const properties = await rawProperties.json();
+    
+    for (let elem in properties) {
+      if (properties[elem].type === "IFCBUILDING") {
+        htmlElem = createDescription(
+          Object.keys(properties[elem]).length,
+          Object.keys(properties[elem]),
+          Object.values(properties[elem])
+        );
+      }
+    }
+    return htmlElem;
+  } catch (error) {
+    console.log(error);
+  }
+}
+```
+
+
+### The result
+
+<a href="https://github.com/IFCjs/hello-world/tree/main/examples/web-ifc-three/cesium">Github repo</a>
+<Scene link={"https://ifcjs.github.io/hello-world/examples/web-ifc-three/cesium"} />
+
+## Next steps
+
+🎉🎉🎉
+You should now be able to **load your models into Cesium** and place them anywhere in the world! 😎
+
+You can learn more about Cesium by exploring Cesium [tutorials](https://cesium.com/learn/cesiumjs-learn/) and the [documentation](https://cesium.com/learn/).
